@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>White Track — AI Meeting Summarizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #0D1B2A;
+      --navy-mid: #162537;
+      --navy-light: #1E3148;
+      --accent: #3A8EF6;
+      --accent-glow: rgba(58,142,246,0.15);
+      --accent-light: #EBF3FF;
+      --gold: #E8A838;
+      --success: #27C27A;
+      --danger: #E85454;
+      --surface: #FFFFFF;
+      --surface-2: #F7F9FC;
+      --surface-3: #EFF3F8;
+      --text-1: #0D1B2A;
+      --text-2: #4A5568;
+      --text-3: #8898AA;
+      --border: rgba(13,27,42,0.1);
+      --border-strong: rgba(13,27,42,0.18);
+      --sidebar-w: 260px;
+      --topbar-h: 68px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 16px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.05);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.06);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 18px;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--surface-2);
+      color: var(--text-1);
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    aside {
+      width: var(--sidebar-w);
+      background: var(--navy);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+    }
+    aside::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, rgba(58,142,246,0.08) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .logo-area {
+      padding: 28px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .logo-icon svg { width: 20px; height: 20px; fill: white; }
+    .logo-text { display: flex; flex-direction: column; }
+    .logo-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 17px;
+      color: white;
+      line-height: 1.1;
+    }
+    .logo-tagline { font-size: 10px; color: rgba(255,255,255,0.4); letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1px; }
+
+    nav { padding: 18px 14px; flex: 1; }
+
+    .nav-section-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.3);
+      padding: 0 10px;
+      margin-bottom: 8px;
+      margin-top: 18px;
+    }
+    .nav-section-label:first-child { margin-top: 0; }
+
+    nav a {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      color: rgba(255,255,255,0.55);
+      font-size: 14px;
+      font-weight: 400;
+      cursor: pointer;
+      transition: all 0.18s;
+      text-decoration: none;
+      margin-bottom: 2px;
+      position: relative;
+    }
+    nav a svg { width: 17px; height: 17px; opacity: 0.7; flex-shrink: 0; }
+    nav a:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
+    nav a.active {
+      background: rgba(58,142,246,0.2);
+      color: #fff;
+      font-weight: 500;
+    }
+    nav a.active svg { opacity: 1; }
+    nav a.active::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 20%; bottom: 20%;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 0 3px 3px 0;
+    }
+
+    .sidebar-footer {
+      padding: 16px 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+    .user-chip:hover { background: rgba(255,255,255,0.07); }
+    .avatar {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; color: white; flex-shrink: 0;
+    }
+    .user-info { flex: 1; overflow: hidden; }
+    .user-name { font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-role { font-size: 11px; color: rgba(255,255,255,0.35); }
+
+    /* ── MAIN ── */
+    .main-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      height: var(--topbar-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 5;
+      box-shadow: var(--shadow-sm);
+    }
+    .page-breadcrumb { display: flex; align-items: center; gap: 8px; }
+    .page-title { font-size: 16px; font-weight: 600; color: var(--text-1); }
+    .page-sub { font-size: 13px; color: var(--text-3); }
+
+    .header-actions { display: flex; align-items: center; gap: 12px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s;
+      border: none;
+      font-family: inherit;
+    }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border-strong);
+      color: var(--text-2);
+    }
+    .btn-ghost:hover { background: var(--surface-3); }
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+      box-shadow: 0 2px 8px rgba(58,142,246,0.35);
+    }
+    .btn-primary:hover { background: #2d7de8; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(58,142,246,0.4); }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-danger:hover { background: #d43b3b; }
+    .btn svg { width: 15px; height: 15px; }
+
+    .notif-btn {
+      width: 38px; height: 38px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.18s;
+    }
+    .notif-btn:hover { background: var(--surface-3); }
+    .notif-btn svg { width: 18px; height: 18px; color: var(--text-2); }
+    .notif-dot {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 7px; height: 7px;
+      background: var(--accent);
+      border-radius: 50%;
+      border: 1.5px solid white;
+    }
+
+    /* ── CONTENT ── */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px;
+    }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-track { background: transparent; }
+    .content::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── SECTION HEADER ── */
+    .section-hd {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 28px;
+    }
+    .section-hd h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 26px;
+      color: var(--text-1);
+      line-height: 1.2;
+    }
+    .section-hd p { font-size: 14px; color: var(--text-3); margin-top: 4px; }
+
+    /* ── STAT CARDS ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px 24px;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 0.2s, transform 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .stat-card.blue::after { background: var(--accent); }
+    .stat-card.green::after { background: var(--success); }
+    .stat-card.gold::after { background: var(--gold); }
+    .stat-card.purple::after { background: #9F7AEA; }
+    .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+    .stat-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 14px;
+    }
+    .stat-icon svg { width: 20px; height: 20px; }
+    .stat-icon.blue { background: var(--accent-light); color: var(--accent); }
+    .stat-icon.green { background: #E7FBF2; color: var(--success); }
+    .stat-icon.gold { background: #FEF5E3; color: var(--gold); }
+    .stat-icon.purple { background: #F3EFFF; color: #9F7AEA; }
+
+    .stat-label { font-size: 12px; color: var(--text-3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .stat-value { font-size: 28px; font-weight: 600; color: var(--text-1); line-height: 1; }
+    .stat-change { font-size: 12px; color: var(--success); margin-top: 6px; }
+
+    /* ── GRID 2-COL ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .card-hd {
+      padding: 20px 24px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-hd h3 { font-size: 15px; font-weight: 600; }
+    .card-body { padding: 20px 24px; }
+
+    /* ── WELCOME BANNER ── */
+    .welcome-banner {
+      background: linear-gradient(135deg, var(--navy) 0%, #1a3a5c 100%);
+      border-radius: var(--radius-lg);
+      padding: 32px 36px;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .welcome-banner::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 220px; height: 220px;
+      border-radius: 50%;
+      background: rgba(58,142,246,0.12);
+    }
+    .welcome-banner::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; right: 80px;
+      width: 160px; height: 160px;
+      border-radius: 50%;
+      background: rgba(58,142,246,0.07);
+    }
+    .wb-text h3 { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 8px; }
+    .wb-text p { font-size: 14px; color: rgba(255,255,255,0.6); max-width: 400px; line-height: 1.6; }
+    .wb-cta { position: relative; z-index: 1; }
+
+    /* ── RECENT LIST ── */
+    .recent-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .recent-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .recent-item:first-child { padding-top: 0; }
+    .file-icon {
+      width: 38px; height: 38px;
+      border-radius: 9px;
+      background: var(--accent-light);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .file-icon svg { width: 18px; height: 18px; color: var(--accent); }
+    .recent-info { flex: 1; }
+    .recent-name { font-size: 14px; font-weight: 500; }
+    .recent-meta { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+    .badge {
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+    }
+    .badge-success { background: #E7FBF2; color: var(--success); }
+    .badge-pending { background: #FEF5E3; color: var(--gold); }
+    .badge-info { background: var(--accent-light); color: var(--accent); }
+
+    /* ── UPLOAD PAGE ── */
+    .upload-container { max-width: 680px; margin: 0 auto; }
+
+    .drop-zone {
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: var(--surface);
+      position: relative;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: var(--accent-glow);
+    }
+    .drop-zone input[type=file] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+    }
+    .drop-icon {
+      width: 64px; height: 64px;
+      background: var(--accent-light);
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+    }
+    .drop-icon svg { width: 30px; height: 30px; color: var(--accent); }
+    .drop-title { font-size: 17px; font-weight: 600; margin-bottom: 8px; }
+    .drop-sub { font-size: 13px; color: var(--text-3); margin-bottom: 18px; }
+    .drop-formats span {
+      display: inline-block;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 3px 9px;
+      font-size: 11px;
+      color: var(--text-3);
+      margin: 0 3px;
+    }
+    .file-selected {
+      margin-top: 18px;
+      padding: 14px 18px;
+      background: var(--accent-light);
+      border-radius: var(--radius-sm);
+      display: flex; align-items: center; gap: 12px;
+      display: none;
+    }
+    .file-selected svg { width: 18px; height: 18px; color: var(--accent); flex-shrink: 0; }
+    .file-selected-name { font-size: 14px; color: var(--accent); font-weight: 500; }
+    .file-selected-size { font-size: 12px; color: var(--text-3); }
+
+    .progress-wrap { display: none; margin-top: 20px; }
+    .progress-bar-bg { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; width: 0%; transition: width 0.3s; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-3); margin-top: 8px; }
+
+    .result-card {
+      display: none;
+      margin-top: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+    .result-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+    }
+    .result-tab {
+      padding: 13px 16px 11px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-3);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.18s;
+    }
+    .result-tab.active { color: var(--accent); border-color: var(--accent); }
+    .result-body { padding: 24px; }
+    .result-body h4 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3); margin-bottom: 10px; }
+    .result-body p { font-size: 14px; line-height: 1.7; color: var(--text-2); }
+    .action-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 0; border-bottom: 1px solid var(--border);
+      font-size: 14px; color: var(--text-2);
+    }
+    .action-item:last-child { border-bottom: none; }
+    .action-check {
+      width: 18px; height: 18px; flex-shrink: 0;
+      border: 1.5px solid var(--border-strong);
+      border-radius: 4px; margin-top: 1px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.18s;
+    }
+    .action-check:hover { border-color: var(--accent); }
+
+    /* ── HISTORY ── */
+    .history-filters {
+      display: flex; gap: 10px; margin-bottom: 20px; align-items: center;
+    }
+    .search-box {
+      flex: 1; display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 0 14px;
+      box-shadow: var(--shadow-sm);
+    }
+    .search-box svg { width: 16px; height: 16px; color: var(--text-3); flex-shrink: 0; }
+    .search-box input {
+      border: none; outline: none; font-family: inherit;
+      font-size: 14px; color: var(--text-1); background: transparent;
+      padding: 10px 0; width: 100%;
+    }
+    .select-filter {
+      border: 1px solid var(--border); background: var(--surface);
+      border-radius: var(--radius-sm); padding: 10px 14px;
+      font-size: 13px; font-family: inherit; color: var(--text-2);
+      outline: none; cursor: pointer; box-shadow: var(--shadow-sm);
+    }
+
+    .history-table { width: 100%; }
+    .history-table thead tr {
+      background: var(--surface-2);
+    }
+    .history-table th {
+      padding: 11px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-3);
+      text-align: left;
+    }
+    .history-table th:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .history-table th:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    .history-table td {
+      padding: 14px 16px;
+      font-size: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-table tbody tr:hover { background: var(--surface-2); }
+    .history-table tbody tr:last-child td { border-bottom: none; }
+    .action-link { color: var(--accent); font-size: 13px; cursor: pointer; font-weight: 500; }
+    .action-link:hover { text-decoration: underline; }
+
+    /* ── SETTINGS ── */
+    .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; }
+    .settings-nav { }
+    .settings-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px; border-radius: var(--radius-sm);
+      font-size: 14px; color: var(--text-2);
+      cursor: pointer; transition: all 0.18s;
+      margin-bottom: 2px;
+    }
+    .settings-nav-item svg { width: 17px; height: 17px; }
+    .settings-nav-item:hover { background: var(--surface-3); }
+    .settings-nav-item.active { background: var(--accent-light); color: var(--accent); font-weight: 500; }
+
+    .settings-section { display: none; }
+    .settings-section.active { display: block; }
+    .settings-group { margin-bottom: 32px; }
+    .settings-group-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 12px; }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      box-shadow: var(--shadow-sm);
+    }
+    .settings-row-left h4 { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+    .settings-row-left p { font-size: 12px; color: var(--text-3); }
+
+    .toggle {
+      width: 42px; height: 24px;
+      background: var(--border-strong);
+      border-radius: 12px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.25s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--accent); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.25s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle.on::after { transform: translateX(18px); }
+
+    .input-field {
+      width: 100%; padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px; font-family: inherit;
+      color: var(--text-1); background: var(--surface);
+      outline: none; transition: border 0.18s;
+      box-shadow: var(--shadow-sm);
+    }
+    .input-field:focus { border-color: var(--accent); }
+
+    /* ── LOGIN MODAL ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(13,27,42,0.5);
+      backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      width: 400px;
+      box-shadow: var(--shadow-lg);
+      animation: modalIn 0.25s ease;
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: translateY(16px) scale(0.97); }
+      to { opacity: 1; transform: none; }
+    }
+    .modal-logo { text-align: center; margin-bottom: 24px; }
+    .modal-logo .logo-icon { margin: 0 auto 12px; width: 48px; height: 48px; border-radius: 14px; }
+    .modal-logo h2 { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 4px; }
+    .modal-logo p { font-size: 13px; color: var(--text-3); }
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; display: block; }
+    .modal-close {
+      position: absolute; top: 16px; right: 18px;
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: var(--surface-3);
+      border: none; cursor: pointer;
+      font-size: 16px; color: var(--text-3);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.18s;
+    }
+    .modal-close:hover { background: var(--surface-2); }
+
+    .divider { display: flex; align-items: center; gap: 12px; margin: 18px 0; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .divider span { font-size: 12px; color: var(--text-3); }
+
+    /* ── FOOTER ── */
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 14px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    footer p { font-size: 12px; color: var(--text-3); }
+
+    /* ── PROCESSING STEPS ── */
+    .process-steps { display: flex; gap: 0; margin-bottom: 28px; }
+    .step {
+      flex: 1; display: flex; align-items: center; gap: 12px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-right: none;
+      transition: all 0.2s;
+    }
+    .step:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .step:last-child { border-right: 1px solid var(--border); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    .step.done { background: var(--accent-light); border-color: rgba(58,142,246,0.3); }
+    .step-num {
+      width: 28px; height: 28px; flex-shrink: 0;
+      border-radius: 50%; border: 1.5px solid var(--border-strong);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 600; color: var(--text-3);
+    }
+    .step.done .step-num { background: var(--accent); border-color: var(--accent); color: white; }
+    .step-info p { font-size: 12px; font-weight: 500; color: var(--text-2); }
+    .step-info span { font-size: 11px; color: var(--text-3); }
+    .step.done .step-info p { color: var(--accent); }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+    }
+    .empty-state svg { width: 56px; height: 56px; color: var(--border-strong); margin-bottom: 16px; }
+    .empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .empty-state p { font-size: 14px; color: var(--text-3); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside>
+  <div class="logo-area">
+    <div class="logo-badge">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-name">White Track</span>
+        <span class="logo-tagline">AI Solutions</span>
+      </div>
+    </div>
+  </div>
+
+  <nav>
+    <div class="nav-section-label">Main</div>
+    <a class="active" onclick="showPage('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+    <a onclick="showPage('upload')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+      Upload Audio
+    </a>
+    <a onclick="showPage('history')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      History
+    </a>
+
+    <div class="nav-section-label">Configure</div>
+    <a onclick="showPage('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M19.07 19.07l-1.41-1.41M5.34 5.34L3.93 3.93M21 12h-2M5 12H3M12 21v-2M12 5V3"/></svg>
+      Settings
+    </a>
+    <a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Analytics
+    </a>
+    <a>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 7a4 4 0 100 8 4 4 0 000-8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      Team
+    </a>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-chip" onclick="openLogin()">
+      <div class="avatar">WT</div>
+      <div class="user-info">
+        <div class="user-name">Guest User</div>
+        <div class="user-role">Click to log in</div>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.35)" stroke-width="2" style="width:14px;height:14px;flex-shrink:0"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrap">
+
+  <!-- TOP BAR -->
+  <header>
+    <div class="page-breadcrumb">
+      <span class="page-title" id="headerTitle">Dashboard</span>
+      <span class="page-sub" id="headerSub"></span>
+    </div>
+    <div class="header-actions">
+      <div class="notif-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span class="notif-dot"></span>
+      </div>
+      <button class="btn btn-ghost" onclick="openLogin()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 7a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        Sign In
+      </button>
+      <button class="btn btn-primary" onclick="showPage('upload')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+        New Upload
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="page active">
+      <div class="section-hd">
+        <div>
+          <h2 id="greetingText">𝑾𝒆𝒍𝒄𝒐𝒎𝒆 𝑩𝒂𝒄𝒌!!!</h2>
+          <p>Here's what's happening with your meeting summaries today.</p>
+        </div>
+      </div>
+
+      <div class="welcome-banner">
+        <div class="wb-text">
+          <h3>AI-Powered Meeting Intelligence</h3>
+          <p>Upload audio recordings or transcripts and receive structured summaries with key points, action items, and decisions — in seconds.</p>
+        </div>
+        <div class="wb-cta">
+          <button class="btn btn-primary" onclick="showPage('upload')" style="background:white;color:var(--navy);box-shadow:0 2px 10px rgba(0,0,0,0.2)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--navy)"><path d="M12 5v14M5 12l7-7 7 7"/></svg>
+            Upload Now
+          </button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-icon blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="stat-label">Files Uploaded</div>
+          <div class="stat-value" id="fileCount">0</div>
+          <div class="stat-change">↑ ready to process</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon green">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          </div>
+          <div class="stat-label">Summaries</div>
+          <div class="stat-value" id="summaryCount">0</div>
+          <div class="stat-change">↑ generated</div>
+        </div>
+        <div class="stat-card gold">
+          <div class="stat-icon gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <div class="stat-label">Action Items</div>
+          <div class="stat-value" id="actionCount">0</div>
+          <div class="stat-change">extracted</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-icon purple">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="stat-label">Avg. Process Time</div>
+          <div class="stat-value">—</div>
+          <div class="stat-change">per recording</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-hd">
+            <h3>Recent Files</h3>
+            <span class="badge badge-info" id="recentBadge">0 files</span>
+          </div>
+          <div class="card-body" id="recentList">
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <h3>No files yet</h3>
+              <p>Upload your first meeting audio to get started.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-hd"><h3>How It Works</h3></div>
+          <div class="card-body">
+            <div class="process-steps" id="processSteps">
+              <div class="step" id="step1">
+                <div class="step-num">1</div>
+                <div class="step-info"><p>Upload</p><span>Audio file</span></div>
+              </div>
+              <div class="step" id="step2">
+                <div class="step-num">2</div>
+                <div class="step-info"><p>Transcribe</p><span>Speech to text</span></div>
+              </div>
+              <div class="step" id="step3">
+                <div class="step-num">3</div>
+                <div class="step-info"><p>Analyze</p><span>AI processing</span></div>
+              </div>
+              <div class="step" id="step4">
+                <div class="step-num">4</div>
+                <div class="step-info"><p>Summary</p><span>Structured output</span></div>
+              </div>
+            </div>
+            <p style="font-size:14px;color:var(--text-2);line-height:1.7">
+              White Track's AI pipeline converts meeting recordings into concise, structured summaries — extracting key decisions, action items, and insights automatically.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UPLOAD PAGE -->
+    <div id="upload" class="page">
+      <div class="section-hd">
+        <div>
+          <h2>Upload Meeting Audio</h2>
+          <p>Drag and drop your file or click to browse — we'll handle the rest.</p>
+        </div>
+      </div>
+      <div class="upload-container">
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="audioFile" accept=".mp3,.wav,.m4a,.ogg,.txt,.pdf">
+          <div class="drop-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          </div>
+          <div class="drop-title">Drop your file here</div>
+          <div class="drop-sub">Supports audio recordings and text transcripts</div>
+          <div class="drop-formats">
+            <span>MP3</span><span>WAV</span><span>M4A</span><span>TXT</span><span>PDF</span>
+          </div>
+        </div>
+
+        <div class="file-selected" id="fileSelected">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <div>
+            <div class="file-selected-name" id="fileNameDisplay"></div>
+            <div class="file-selected-size" id="fileSizeDisplay"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:18px">
+          <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="uploadAudio()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            Generate Summary
+          </button>
+          <button class="btn btn-ghost" onclick="clearUpload()">Clear</button>
+        </div>
+
+        <div class="progress-wrap" id="progressWrap">
+          <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+          <div class="progress-label"><span id="progressLabel">Processing...</span><span id="progressPct">0%</span></div>
+        </div>
+
+        <div class="result-card" id="resultCard">
+          <div class="card-hd">
+            <h3>Summary Generated</h3>
+            <span class="badge badge-success">Complete</span>
+          </div>
+          <div class="result-tabs">
+            <div class="result-tab active" onclick="switchTab('summary', this)">Summary</div>
+            <div class="result-tab" onclick="switchTab('keypoints', this)">Key Points</div>
+            <div class="result-tab" onclick="switchTab('actions', this)">Action Items</div>
+            <div class="result-tab" onclick="switchTab('decisions', this)">Decisions</div>
+          </div>
+          <div id="tab-summary" class="result-body">
+            <h4>Meeting Overview</h4>
+            <p id="summaryText"></p>
+          </div>
+          <div id="tab-keypoints" class="result-body" style="display:none">
+            <h4>Key Points</h4>
+            <div id="keypointsText"></div>
+          </div>
+          <div id="tab-actions" class="result-body" style="display:none">
+            <h4>Action Items</h4>
+            <div id="actionsText"></div>
+          </div>
+          <div id="tab-decisions" class="result-body" style="display:none">
+            <h4>Decisions Made</h4>
+            <div id="decisionsText"></div>
+          </div>
+          <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px">
+            <button class="btn btn-ghost" onclick="copySummary()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+            <button class="btn btn-ghost" onclick="downloadSummary()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="history" class="page">
+      <div class="section-hd">
+        <div>
+          <h2>Processing History</h2>
+          <p>All previously uploaded files and their summaries.</p>
+        </div>
+        <button class="btn btn-ghost">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export
+        </button>
+      </div>
+
+      <div class="history-filters">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" placeholder="Search by file name...">
+        </div>
+        <select class="select-filter">
+          <option>All Status</option>
+          <option>Complete</option>
+          <option>Processing</option>
+          <option>Failed</option>
+        </select>
+        <select class="select-filter">
+          <option>All Time</option>
+          <option>Today</option>
+          <option>This Week</option>
+          <option>This Month</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <table class="history-table" style="border-collapse:collapse;width:100%">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Uploaded</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="historyBody">
+            <tr>
+              <td colspan="5">
+                <div class="empty-state">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                  <h3>No history yet</h3>
+                  <p>Upload a file to see processing history here.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="settings" class="page">
+      <div class="section-hd">
+        <div>
+          <h2>Settings</h2>
+          <p>Manage your account preferences and application configuration.</p>
+        </div>
+      </div>
+
+      <div class="settings-layout">
+        <div class="settings-nav">
+          <div class="settings-nav-item active" onclick="switchSettingsTab('account', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 7a4 4 0 100 8 4 4 0 000-8z"/></svg>
+            Account
+          </div>
+          <div class="settings-nav-item" onclick="switchSettingsTab('notifications', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+            Notifications
+          </div>
+          <div class="settings-nav-item" onclick="switchSettingsTab('appearance', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 010 20 5 5 0 010-10"/></svg>
+            Appearance
+          </div>
+          <div class="settings-nav-item" onclick="switchSettingsTab('privacy', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Privacy & Security
+          </div>
+          <div class="settings-nav-item" onclick="switchSettingsTab('ai', this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2V4a2 2 0 012-2zM12 16a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2v-2a2 2 0 012-2z"/><path d="M4 12a2 2 0 012-2h2a2 2 0 110 4H6a2 2 0 01-2-2zM16 12a2 2 0 012-2h2a2 2 0 110 4h-2a2 2 0 01-2-2z"/></svg>
+            AI Configuration
+          </div>
+        </div>
+
+        <div>
+          <div id="settings-account" class="settings-section active">
+            <div class="settings-group">
+              <div class="settings-group-label">Profile</div>
+              <div style="display:grid;gap:12px;margin-bottom:16px">
+                <div><label class="form-label">Full Name</label><input class="input-field" value="Guest User" placeholder="Your name"></div>
+                <div><label class="form-label">Email Address</label><input class="input-field" placeholder="your@email.com" type="email"></div>
+                <div><label class="form-label">Organisation</label><input class="input-field" value="White Track Technologies" placeholder="Company name"></div>
+              </div>
+              <button class="btn btn-primary">Save Changes</button>
+            </div>
+            <div class="settings-group">
+              <div class="settings-group-label">Danger Zone</div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Delete Account</h4><p>Permanently remove your data</p></div>
+                <button class="btn btn-danger" style="font-size:13px;padding:7px 14px">Delete</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="settings-notifications" class="settings-section">
+            <div class="settings-group">
+              <div class="settings-group-label">Alerts</div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Email Notifications</h4><p>Receive summary completion emails</p></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Processing Alerts</h4><p>Notify when processing fails</p></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Weekly Report</h4><p>Summary of your weekly activity</p></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="settings-appearance" class="settings-section">
+            <div class="settings-group">
+              <div class="settings-group-label">Display</div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Dark Mode</h4><p>Switch to dark theme</p></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Compact View</h4><p>Reduce spacing in lists</p></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="settings-privacy" class="settings-section">
+            <div class="settings-group">
+              <div class="settings-group-label">Security</div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Two-Factor Authentication</h4><p>Add an extra layer of security</p></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Data Retention</h4><p>Auto-delete files after 90 days</p></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+              </div>
+            </div>
+          </div>
+
+          <div id="settings-ai" class="settings-section">
+            <div class="settings-group">
+              <div class="settings-group-label">Model Settings</div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Summary Detail Level</h4><p>Amount of detail in summaries</p></div>
+                <select class="select-filter">
+                  <option>Concise</option>
+                  <option selected>Balanced</option>
+                  <option>Detailed</option>
+                </select>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row-left"><h4>Language</h4><p>Output language for summaries</p></div>
+                <select class="select-filter">
+                  <option>English</option>
+                  <option>Spanish</option>
+                  <option>French</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- FOOTER -->
+  <footer>
+    <p>© 2026 White Track Technologies — AI Solutions · Training · Development</p>
+    <p>v2.0.0 Production</p>
+  </footer>
+
+</div><!-- /main -->
+
+<!-- LOGIN MODAL -->
+<div class="modal-overlay" id="loginModal" onclick="if(event.target===this)closeLogin()">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeLogin()">×</button>
+    <div class="modal-logo">
+      <div class="logo-icon" style="background:var(--accent)">
+        <svg viewBox="0 0 24 24" fill="white" style="width:24px;height:24px"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <h2>Welcome back</h2>
+      <p>Sign in to your White Track account</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email address</label>
+      <input type="email" class="input-field" placeholder="you@company.com">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input type="password" class="input-field" placeholder="••••••••">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:15px;margin-top:8px">
+      Sign In
+    </button>
+    <div class="divider"><span>or</span></div>
+    <button class="btn btn-ghost" style="width:100%;justify-content:center">
+      Continue with Google
+    </button>
+    <p style="text-align:center;font-size:13px;color:var(--text-3);margin-top:16px">
+      Don't have an account? <span style="color:var(--accent);cursor:pointer">Sign up free</span>
+    </p>
+  </div>
+</div>
+
+<script>
+  const pageTitles = {
+    dashboard: ['Dashboard', ''],
+    upload: ['Upload Audio', '/ New File'],
+    history: ['History', '/ All Records'],
+    settings: ['Settings', '/ Preferences']
+  };
+
+  let fileCount = 0, summaryCount = 0, actionCount = 0;
+  let historyItems = [];
+
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+    const idx = ['dashboard','upload','history','settings'].indexOf(id);
+    const navLinks = document.querySelectorAll('nav a');
+    if (idx >= 0) navLinks[idx].classList.add('active');
+    document.getElementById('headerTitle').textContent = pageTitles[id][0];
+    document.getElementById('headerSub').textContent = pageTitles[id][1];
+  }
+
+  function openLogin() { document.getElementById('loginModal').classList.add('open'); }
+  function closeLogin() { document.getElementById('loginModal').classList.remove('open'); }
+
+  document.getElementById('audioFile').addEventListener('change', function() {
+    if (this.files[0]) {
+      const f = this.files[0];
+      document.getElementById('fileSelected').style.display = 'flex';
+      document.getElementById('fileNameDisplay').textContent = f.name;
+      document.getElementById('fileSizeDisplay').textContent = (f.size / 1024).toFixed(1) + ' KB';
+    }
+  });
+
+  const dropZone = document.getElementById('dropZone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault(); dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) {
+      document.getElementById('fileSelected').style.display = 'flex';
+      document.getElementById('fileNameDisplay').textContent = f.name;
+      document.getElementById('fileSizeDisplay').textContent = (f.size/1024).toFixed(1) + ' KB';
+    }
+  });
+
+  function clearUpload() {
+    document.getElementById('audioFile').value = '';
+    document.getElementById('fileSelected').style.display = 'none';
+    document.getElementById('resultCard').style.display = 'none';
+    document.getElementById('progressWrap').style.display = 'none';
+  }
+
+  async function uploadAudio() {
+    const file = document.getElementById('audioFile').files[0];
+    const name = document.getElementById('fileNameDisplay').textContent;
+    if (!file && !name) { alert('Please select a file first.'); return; }
+
+    const pw = document.getElementById('progressWrap');
+    const bar = document.getElementById('progressBar');
+    const lbl = document.getElementById('progressLabel');
+    const pct = document.getElementById('progressPct');
+
+    pw.style.display = 'block';
+    document.getElementById('resultCard').style.display = 'none';
+
+    const steps = [
+      ['Uploading file...', 20],
+      ['Transcribing audio...', 45],
+      ['Running AI analysis...', 75],
+      ['Generating summary...', 95],
+      ['Complete!', 100]
+    ];
+
+    for (const [msg, p] of steps) {
+      lbl.textContent = msg; pct.textContent = p + '%';
+      bar.style.width = p + '%';
+      await new Promise(r => setTimeout(r, 600));
+    }
+
+    await new Promise(r => setTimeout(r, 300));
+    pw.style.display = 'none';
+
+    const fname = file ? file.name : name;
+    document.getElementById('summaryText').textContent =
+      `This meeting covered the project status update for Q2 2026. The team discussed progress on the AI integration module, reviewed pending milestones, and aligned on the delivery timeline. Key challenges around data pipeline latency were acknowledged and assigned for resolution.`;
+
+    document.getElementById('keypointsText').innerHTML = [
+      'AI integration module is 70% complete and on track.',
+      'Data pipeline latency identified as a critical blocker.',
+      'Client demo scheduled for end of April 2026.',
+      'Budget review required before next sprint kick-off.',
+      'New team member onboarding planned for next week.'
+    ].map(p => `<div style="display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--text-2)"><span style="color:var(--accent);font-weight:600;margin-top:1px">→</span>${p}</div>`).join('');
+
+    document.getElementById('actionsText').innerHTML = [
+      {who:'Ravi', task:'Fix data pipeline latency issue', due:'Apr 18'},
+      {who:'Priya', task:'Prepare client demo environment', due:'Apr 22'},
+      {who:'Team Lead', task:'Submit budget review document', due:'Apr 20'},
+    ].map(a => `<div class="action-item"><div class="action-check"></div><div><span style="font-weight:500">${a.task}</span><br><span style="font-size:12px;color:var(--text-3)">Assigned to ${a.who} · Due ${a.due}</span></div></div>`).join('');
+
+    document.getElementById('decisionsText').innerHTML = [
+      'Approved: Go-ahead on Phase 2 development.',
+      'Decided: Weekly sync moved to Fridays at 10 AM.',
+      'Agreed: Additional QA resource to be allocated.'
+    ].map(d => `<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;color:var(--text-2)"><span style="color:var(--success);font-weight:600">✓</span>${d}</div>`).join('');
+
+    document.getElementById('resultCard').style.display = 'block';
+    document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    fileCount++; summaryCount++; actionCount += 3;
+    document.getElementById('fileCount').textContent = fileCount;
+    document.getElementById('summaryCount').textContent = summaryCount;
+    document.getElementById('actionCount').textContent = actionCount;
+    document.getElementById('recentBadge').textContent = fileCount + ' file' + (fileCount > 1 ? 's' : '');
+
+    const now = new Date();
+    historyItems.unshift({ name: fname, date: now.toLocaleDateString('en-GB'), size: file ? (file.size/1024).toFixed(1) + ' KB' : '—', status: 'Complete' });
+    renderHistory();
+    renderRecent();
+
+    [1,2,3,4].forEach(i => document.getElementById('step'+i).classList.add('done'));
+  }
+
+  function switchTab(id, el) {
+    document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    ['summary','keypoints','actions','decisions'].forEach(t => {
+      document.getElementById('tab-'+t).style.display = t === id ? '' : 'none';
+    });
+  }
+
+  function renderHistory() {
+    const body = document.getElementById('historyBody');
+    if (!historyItems.length) {
+      body.innerHTML = '<tr><td colspan="5"><div class="empty-state"><p>No history yet.</p></div></td></tr>';
+      return;
+    }
+    body.innerHTML = historyItems.map(h => `
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:10px">
+          <div class="file-icon" style="width:30px;height:30px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <span style="font-weight:500;font-size:13px">${h.name}</span>
+        </div></td>
+        <td style="color:var(--text-3);font-size:13px">${h.date}</td>
+        <td style="color:var(--text-3);font-size:13px">${h.size}</td>
+        <td><span class="badge badge-success">${h.status}</span></td>
+        <td><span class="action-link" onclick="showPage('upload')">View</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function renderRecent() {
+    const el = document.getElementById('recentList');
+    el.innerHTML = historyItems.slice(0,4).map(h => `
+      <div class="recent-item">
+        <div class="file-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div class="recent-info">
+          <div class="recent-name">${h.name}</div>
+          <div class="recent-meta">${h.date} · ${h.size}</div>
+        </div>
+        <span class="badge badge-success">${h.status}</span>
+      </div>
+    `).join('');
+  }
+
+  function switchSettingsTab(id, el) {
+    document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.settings-section').forEach(s => s.classList.remove('active'));
+    document.getElementById('settings-'+id).classList.add('active');
+  }
+
+  function copySummary() {
+    const t = document.getElementById('summaryText').textContent;
+    navigator.clipboard.writeText(t).then(() => alert('Summary copied!'));
+  }
+
+  function downloadSummary() {
+    const t = document.getElementById('summaryText').textContent;
+    const a = document.createElement('a');
+    a.href = 'data:text/plain,' + encodeURIComponent(t);
+    a.download = 'meeting-summary.txt';
+    a.click();
+  }
+</script>
+</body>
+</html>
